@@ -46,7 +46,7 @@ This SDK enables x402 micropayments for APIs. Protect any endpoint with on-chain
 **Install:**
 
 ```bash
-npm install @zynapse/node @solana/web3.js dotenv
+pnpm install @zynapse/node @solana/web3.js dotenv
 ```
 
 **Setup (5 minutes):**
@@ -135,11 +135,9 @@ initSolanaPaywall({
 
 ## Documentation
 
-📚 **[Integration Guide](https://www.google.com/search?q=./INTEGRATION_GUIDE.md)**
+📚 **[Integration Guide](https://www.google.com/search?q=./INTEGRATION_GUIDE.md)** 
 
-  * Complete setup with agent wallets, testing, deployment
-    🎯 **[Examples](https://www.google.com/search?q=./examples/)**
-  * Working code samples
+🎯 **[Examples](https://www.google.com/search?q=./examples/)**
 
 -----
 
@@ -223,7 +221,7 @@ See **[examples/](https://www.google.com/search?q=./examples/)** for complete wo
 
 ## Requirements
 
-  * Node.js 16+
+  * Node.js 23+
   * Express.js 4.x+
   * Solana wallet for receiving payments
 
@@ -239,3 +237,4 @@ See **[examples/](https://www.google.com/search?q=./examples/)** for complete wo
 ## License
 
 Apache 2.0
+
