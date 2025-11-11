@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Solana Pixtral Chat - Zynapse</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 0;
+      padding: 24px;
+      background: #020817;
+      color: #e5e7eb;
+    }
+    h1 { margin: 0 0 6px; color: #38bdf8; }
+    .card {
+      background: rgba(10,18,32,0.98);
+      border-radius: 16px;
+      padding: 14px;
+      border: 1px solid rgba(148,163,253,0.22);
+      box-shadow: 0 14px 30px rgba(15,23,42,0.7);
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .badge {
+      display:inline-block;padding:2px 8px;border-radius:999px;
+      font-size:9px;margin-right:4px;
+      background:rgba(56,189,248,0.14);color:#38bdf8;
+    }
+    button {
+      margin-top:6px;padding:6px 12px;border-radius:999px;
+      border:none;cursor:pointer;font-size:11px;
+      background:#38bdf8;color:#020817;
+    }
+    button.secondary {
+      background:transparent;color:#9ca3af;
+      border:1px solid rgba(148,163,253,0.4);margin-left:4px;
+    }
+    label {
+      display:block;font-size:10px;color:#9ca3af;margin-top:6px;
+    }
+    textarea {
+      width:100%;margin-top:2px;padding:6px 8px;border-radius:10px;
+      border:1px solid rgba(75,85,99,0.9);
+      background:#020817;color:#e5e7eb;font-size:11px;
+      box-sizing:border-box;resize:vertical;
+    }
+    pre {
+      background:#020817;padding:8px;border-radius:10px;
+      border:1px solid rgba(75,85,99,0.9);font-size:10px;
+      max-height:260px;overflow:auto;margin-top:8px;
+      white-space:pre-wrap;word-break:break-word;
+    }
+  </style>
+</head>
+<body>
+  <h1>Solana Pixtral Chat (Zynapse)</h1>
+  <div style="font-size:11px;color:#9ca3af;margin-bottom:12px;">
+    Uses the Pixtral product you defined in the admin widget.
+    Agent wallet is created & funded server-side; private key never leaves backend.
+  </div>
+
+  <div class="card">
+    <div>
+      <span class="badge">SOLANA DEVNET</span>
+      <span class="badge">AUTONOMOUS WALLET</span>
+      <span class="badge">PIXTRAL</span>
+    </div>
+
+    <div id="product-info" style="font-size:10px;color:#9ca3af;margin-top:4px;">
+      Loading Pixtral Solana product from /zynapse/config...
+    </div>
+
+    <div id="wallet-status" style="font-size:10px;color:#9ca3af;margin-top:4px;">
+      Loading wallet status...
+    </div>
+
+    <div style="margin-top:4px;">
+      <button id="create-wallet-btn">Create Agent Wallet (+devnet SOL)</button>
+      <button id="refresh-wallet-btn" class="secondary">Refresh Wallet</button>
+    </div>
+
+    <form id="prompt-form" style="margin-top:8px;display:none;">
+      <label>
+        Prompt
+        <textarea name="prompt" placeholder="Ask Pixtral something..."></textarea>
+      </label>
+      <button type="submit">Send (Paid via Agent Wallet)</button>
+    </form>
+
+    <pre id="result">// waiting for config...</pre>
+  </div>
+
+  <script>
+    const productInfoEl = document.getElementById("product-info");
+    const walletStatusEl = document.getElementById("wallet-status");
+    const createBtn = document.getElementById("create-wallet-btn");
+    const refreshBtn = document.getElementById("refresh-wallet-btn");
+    const formEl = document.getElementById("prompt-form");
+    const resultEl = document.getElementById("result");
+
+    let product = null; // selected Solana Pixtral product
+
+    async function loadConfig() {
+      const res = await fetch("/zynapse/config");
+      const data = await res.json();
+      return data.config || data;
+    }
+
+    async function pickSolanaPixtralProduct() {
+      const cfg = await loadConfig();
+      const candidates = (cfg.products || []).filter(
+        (p) =>
+          p.chain === "solana" &&
+          p.aiBackend === "pixtral"
+      );
+      return candidates[0] || null;
+    }
+
+    async function loadWalletStatus() {
+      try {
+        const res = await fetch("/wallet/status");
+        const data = await res.json();
+        if (!data.exists) {
+          walletStatusEl.textContent =
+            "No agent wallet yet. Click 'Create Agent Wallet'.";
+        } else {
+          walletStatusEl.textContent =
+            `Agent wallet: ${data.publicKey} ` +
+            (data.balanceSol != null
+              ? `(~${data.balanceSol.toFixed(4)} SOL)`
+              : "");
+        }
+      } catch (e) {
+        walletStatusEl.textContent =
+          "Failed to load wallet status: " + (e.message || e);
+      }
+    }
+
+    async function createWallet() {
+      resultEl.textContent = "";
+      walletStatusEl.textContent =
+        "Creating wallet and requesting devnet SOL...";
+      const res = await fetch("/wallet/create", { method: "POST" });
+      const data = await res.json();
+      if (!data.ok) {
+        walletStatusEl.textContent =
+          "Create failed: " + (data.error || "unknown");
+      } else {
+        walletStatusEl.textContent =
+          `Agent wallet: ${data.publicKey} (check faucet/airdrop status below)`;
+      }
+    }
+
+    createBtn.onclick = async () => {
+      await createWallet();
+      await loadWalletStatus();
+    };
+    refreshBtn.onclick = loadWalletStatus;
+
+    formEl.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!product) {
+        resultEl.textContent =
+          "// No Solana Pixtral product configured. Create one in /admin.";
+        return;
+      }
+      const fd = new FormData(formEl);
+      const prompt = fd.get("prompt") || "";
+      resultEl.textContent =
+        "// calling /test/sol?productId=" +
+        product.id +
+        " ...";
+
+      const res = await fetch(
+        `/test/sol?productId=${encodeURIComponent(product.id)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt }),
+        }
+      );
+
+      const text = await res.text();
+      try {
+        const json = JSON.parse(text);
+        resultEl.textContent = JSON.stringify(json, null, 2);
+      } catch {
+        resultEl.textContent = text;
+      }
+    });
+
+    (async () => {
+      try {
+        product = await pickSolanaPixtralProduct();
+        if (!product) {
+          productInfoEl.textContent =
+            "No Solana Pixtral product found. Go to /admin and create one (chain=solana).";
+          formEl.style.display = "none";
+        } else {
+          const price =
+            product.priceSol != null
+              ? product.priceSol + " SOL"
+              : "N/A";
+          productInfoEl.innerHTML =
+            `<div><strong>${product.label}</strong></div>` +
+            `<div style="margin-top:2px;">${
+              product.description || ""
+            }</div>` +
+            `<div style="margin-top:4px;color:#38bdf8;">
+              Uses productId=${product.id}, price=${price}
+            </div>`;
+          formEl.style.display = "block";
+        }
+      } catch (e) {
+        productInfoEl.textContent =
+          "Failed to load config: " + (e.message || e);
+      }
+
+      await loadWalletStatus();
+    })();
+  </script>
+</body>
+</html>
+

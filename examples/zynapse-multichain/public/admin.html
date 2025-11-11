@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Zynapse Multichain Admin - Pixtral Products</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 0;
+      padding: 24px;
+      background: #020817;
+      color: #e5e7eb;
+    }
+    h1 { margin: 0 0 6px; color: #38bdf8; }
+    h2 { margin: 18px 0 6px; color: #a5b4fc; }
+    .layout { display: grid; grid-template-columns: 2fr 1.6fr; gap: 20px; align-items: flex-start; }
+    .card {
+      background: rgba(10,18,32,0.98);
+      border-radius: 16px;
+      padding: 14px;
+      border: 1px solid rgba(148,163,253,0.22);
+      box-shadow: 0 14px 30px rgba(15,23,42,0.7);
+    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px,1fr)); gap: 10px; }
+    .badge {
+      display:inline-block;padding:2px 8px;border-radius:999px;
+      font-size:9px;margin-right:4px;background:rgba(56,189,248,0.14);color:#38bdf8;
+    }
+    .pill { background:rgba(236,72,153,0.12);color:#f472b6; }
+    label { display:block;font-size:10px;color:#9ca3af;margin-top:6px; }
+    input,select,textarea {
+      width:100%;margin-top:2px;padding:5px 7px;border-radius:8px;
+      border:1px solid rgba(75,85,99,0.9);background:#020817;color:#e5e7eb;
+      font-size:11px;box-sizing:border-box;
+    }
+    textarea { min-height:50px;resize:vertical; }
+    button {
+      margin-top:8px;padding:6px 10px;border-radius:999px;border:none;
+      cursor:pointer;font-size:11px;background:#38bdf8;color:#020817;
+    }
+    button.secondary {
+      background:transparent;color:#9ca3af;
+      border:1px solid rgba(148,163,253,0.4);margin-left:4px;
+    }
+    pre {
+      background:#020817;padding:8px;border-radius:10px;
+      border:1px solid rgba(75,85,99,0.9);font-size:10px;
+      max-height:260px;overflow:auto;margin-top:6px;
+      white-space:pre-wrap;word-break:break-word;
+    }
+    .split { font-size:9px;color:#9ca3af;margin-top:3px; }
+  </style>
+</head>
+<body>
+  <h1>Zynapse Multichain Admin</h1>
+  <div style="font-size:11px;color:#9ca3af;margin-bottom:14px;">
+    Define Pixtral/Mistral paid APIs on EVM or Solana. The server wires paywalls + handlers.
+    Other widgets (e.g. Solana Pixtral chat) consume these products via /zynapse/config.
+  </div>
+
+  <div class="layout">
+    <!-- LEFT: Products -->
+    <div>
+      <h2>Products</h2>
+      <div id="products" class="grid"></div>
+    </div>
+
+    <!-- RIGHT: Builder + Log -->
+    <div>
+      <div class="card">
+        <div style="font-weight:600;font-size:13px;">Create Pixtral Product</div>
+        <form id="builder-form">
+          <label>
+            ID (unique)
+            <input name="id" placeholder="pixtral-sol-1" required />
+          </label>
+          <label>
+            Label
+            <input name="label" placeholder="Pixtral Solana Paid AI" required />
+          </label>
+          <label>
+            Chain
+            <select name="chain">
+              <option value="solana">Solana</option>
+              <option value="evm">EVM (x402)</option>
+            </select>
+          </label>
+          <label>
+            HTTP Method
+            <select name="method">
+              <option>POST</option>
+              <option>GET</option>
+            </select>
+          </label>
+          <label>
+            Path
+            <input name="path" placeholder="/ai/pixtral-sol-1" required />
+          </label>
+          <label>
+            Description
+            <textarea name="description" placeholder="Short description shown in widgets."></textarea>
+          </label>
+          <label>
+            Price
+            <span style="font-size:9px;color:#6b7280;">
+              For EVM: use $ format (e.g. $0.10). For Solana: numeric SOL (e.g. 0.1).
+            </span>
+            <input name="price" placeholder="$0.10 or 0.1" />
+          </label>
+          <label>
+            Payouts (optional)
+            <span style="font-size:9px;color:#6b7280;">
+              address:percent,address:percent<br/>
+              E.g. 0xMerchant:100 or SolPubKey1:70,SolPubKey2:30
+            </span>
+            <input name="payouts" placeholder="address1:70,address2:30" />
+          </label>
+          <label>
+            Pixtral Model (optional)
+            <input name="model" placeholder="pixtral-12b-2409" />
+          </label>
+          <button type="submit">Create & Wire</button>
+        </form>
+        <div id="builder-status" style="font-size:10px;color:#9ca3af;margin-top:4px;">
+          Uses POST /zynapse/admin/product. No client secrets involved.
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:10px;">
+        <div style="font-weight:600;font-size:13px;">Log / Debug</div>
+        <div id="log"><pre>// create a product, then click "Test via backend agent"</pre></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const productsEl = document.getElementById("products");
+    const formEl = document.getElementById("builder-form");
+    const statusEl = document.getElementById("builder-status");
+    const logEl = document.getElementById("log");
+
+    async function loadConfig() {
+      const res = await fetch("/zynapse/config");
+      const data = await res.json();
+      return data.config || data;
+    }
+
+    function renderProducts(config) {
+      productsEl.innerHTML = "";
+      (config.products || []).forEach((p) => {
+        const card = document.createElement("div");
+        card.className = "card";
+
+        const price =
+          p.price ||
+          (p.priceSol ? p.priceSol + " SOL" : "N/A");
+
+        card.innerHTML = `
+          <div>
+            <span class="badge">${p.chain.toUpperCase()}</span>
+            <span class="badge">PIXTRAL</span>
+          </div>
+          <div style="font-weight:600;font-size:12px;margin-top:3px;">
+            ${p.label}
+          </div>
+          <div style="font-size:10px;color:#9ca3af;margin-top:2px;">
+            ${p.description || ""}
+          </div>
+          <div style="font-size:10px;color:#38bdf8;margin-top:3px;">
+            Price: ${price}
+          </div>
+          <div style="font-size:10px;color:#9ca3af;margin-top:2px;">
+            Route: <code>${(p.method || "POST").toUpperCase()} ${p.path}</code>
+          </div>
+          ${
+            p.payouts && p.payouts.length
+              ? `<div class="split">
+                  Payouts:<br/>
+                  ${p.payouts
+                    .map(
+                      (s) =>
+                        `- ${s.address.slice(0, 10)}... (${s.percent || "?"}%)`
+                    )
+                    .join("<br/>")}
+                 </div>`
+              : ""
+          }
+        `;
+
+        const testBtn = document.createElement("button");
+        testBtn.textContent = "Test via backend agent";
+        testBtn.onclick = () => testProduct(p);
+
+        const showBtn = document.createElement("button");
+        showBtn.textContent = "Show JSON";
+        showBtn.className = "secondary";
+        showBtn.onclick = () =>
+          (logEl.innerHTML =
+            "<pre>" + JSON.stringify(p, null, 2) + "</pre>");
+
+        card.appendChild(testBtn);
+        card.appendChild(showBtn);
+        productsEl.appendChild(card);
+      });
+    }
+
+    async function testProduct(p) {
+      logEl.innerHTML =
+        "<pre>// testing " + p.id + " via /test/*...</pre>";
+
+      const url =
+        p.chain === "evm"
+          ? `/test/evm?productId=${encodeURIComponent(p.id)}`
+          : `/test/sol?productId=${encodeURIComponent(p.id)}`;
+
+      const res = await fetch(url, { method: "POST" });
+      const text = await res.text();
+      try {
+        const json = JSON.parse(text);
+        logEl.innerHTML =
+          "<pre>" + JSON.stringify(json, null, 2) + "</pre>";
+      } catch {
+        logEl.innerHTML = "<pre>" + text + "</pre>";
+      }
+    }
+
+    formEl.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      statusEl.textContent = "Creating product...";
+
+      const fd = new FormData(formEl);
+      const chain = fd.get("chain");
+      const rawPrice = (fd.get("price") || "").trim();
+      const payoutsRaw = (fd.get("payouts") || "").trim();
+      const model = (fd.get("model") || "").trim();
+
+      const body = {
+        id: fd.get("id").trim(),
+        label: fd.get("label").trim(),
+        chain,
+        method: fd.get("method").trim(),
+        path: fd.get("path").trim(),
+        description: fd.get("description").trim(),
+        aiBackend: "pixtral",
+        model: model || undefined,
+      };
+
+      if (chain === "evm") {
+        if (!rawPrice || !rawPrice.startsWith("$")) {
+          statusEl.textContent =
+            "For EVM, price must be like $0.10";
+          return;
+        }
+        body.price = rawPrice;
+      } else {
+        const solVal = parseFloat(rawPrice || "0");
+        if (!solVal || solVal <= 0) {
+          statusEl.textContent =
+            "For Solana, price must be numeric SOL (e.g. 0.1).";
+          return;
+        }
+        body.priceSol = solVal;
+      }
+
+      if (payoutsRaw) {
+        body.payouts = payoutsRaw.split(",").map((pair) => {
+          const [addr, pct] = pair.split(":").map((s) => s.trim());
+          return {
+            address: addr,
+            percent: pct ? Number(pct) : undefined,
+          };
+        });
+      }
+
+      const res = await fetch("/zynapse/admin/product", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+
+      if (!data.ok) {
+        statusEl.textContent =
+          "Error: " + (data.error || "unknown_error");
+        return;
+      }
+
+      statusEl.textContent =
+        "Product created & wired. Refreshing...";
+      formEl.reset();
+      const cfg = await loadConfig();
+      renderProducts(cfg);
+      statusEl.textContent =
+        "Ready. Use 'Test via backend agent' or the Solana Pixtral widget.";
+    });
+
+    (async () => {
+      try {
+        const cfg = await loadConfig();
+        renderProducts(cfg);
+      } catch (e) {
+        productsEl.innerHTML =
+          "<div style='color:#fecaca;font-size:11px;'>Failed to load /zynapse/config</div>";
+      }
+    })();
+  </script>
+</body>
+</html>
+
