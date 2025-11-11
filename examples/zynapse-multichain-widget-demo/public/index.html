@@ -1,0 +1,603 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Zynapse Multi-Chain Widget Demo</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 0;
+      padding: 24px;
+      background: #050816;
+      color: #e5e7eb;
+    }
+    h1 {
+      margin-bottom: 8px;
+      color: #38bdf8;
+    }
+    h2 {
+      margin-top: 24px;
+      color: #a5b4fc;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-top: 12px;
+    }
+    .card {
+      background: rgba(15,23,42,0.95);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 12px 25px rgba(15,23,42,0.6);
+      border: 1px solid rgba(148,163,253,0.18);
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      margin-right: 6px;
+      background: rgba(56,189,248,0.1);
+      color: #38bdf8;
+    }
+    .split-list {
+      font-size: 11px;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+    button {
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-size: 12px;
+      background: #38bdf8;
+      color: #020817;
+    }
+    button.secondary {
+      background: transparent;
+      color: #9ca3af;
+      border: 1px solid rgba(148,163,253,0.35);
+      margin-left: 6px;
+    }
+    pre {
+      background: #020817;
+      padding: 8px;
+      border-radius: 8px;
+      max-height: 260px;
+      overflow: auto;
+      font-size: 10px;
+      border: 1px solid rgba(75,85,99,0.6);
+    }
+    #log {
+      margin-top: 24px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Zynapse Multi-Chain Widget Demo</h1>
+  <div>Config-driven payments across EVM (x402) & Solana with split payouts.</div>
+
+  <h2>Products</h2>
+  <div id="products" class="grid"></div>
+
+  <h2>Live Response</h2>
+  <div id="log"><pre>// click "Test via backend agent" on any product</pre></div>
+
+  <script>
+    async function loadConfig() {
+      const res = await fetch("/zynapse/config");
+      const data = await res.json();
+      return data.config || data;
+    }
+
+    function renderProducts(config) {
+      const root = document.getElementById("products");
+      root.innerHTML = "";
+
+      const products = config.products || [];
+
+      products.forEach((p) => {
+        const card = document.createElement("div");
+        card.className = "card";
+
+        card.innerHTML = `
+          <div>
+            <span class="badge">${p.chain.toUpperCase()}</span>
+            ${p.type === "subscription" ? '<span class="badge">SUBSCRIPTION</span>' : ""}
+          </div>
+          <div style="font-weight:600;margin-top:4px;">${p.label}</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:2px;">${p.description || ""}</div>
+          <div style="font-size:11px;color:#e5e7eb;margin-top:4px;">
+            Route: <code>${p.method || "GET"} ${p.path}</code>
+          </div>
+          <div style="font-size:11px;color:#38bdf8;margin-top:2px;">
+            Price: ${
+              p.price
+                ? p.price
+                : p.priceSol
+                ? p.priceSol + " SOL"
+                : p.priceLamports
+                ? (p.priceLamports / 1_000_000_000).toFixed(4) + " SOL"
+                : "N/A"
+            }
+          </div>
+          ${
+            p.payouts && p.payouts.length
+              ? `<div class="split-list">
+                   Payouts:<br />
+                   ${p.payouts
+                     .map(
+                       (s) =>
+                         `- ${s.address.slice(0, 8)}... (${s.percent || s.share || "?"}%)`
+                     )
+                     .join("<br/>")}
+                 </div>`
+              : ""
+          }
+        `;
+
+        const testBtn = document.createElement("button");
+        testBtn.textContent = "Test via backend agent";
+        testBtn.onclick = () => triggerTest(p);
+
+        const rawBtn = document.createElement("button");
+        rawBtn.textContent = "Show config JSON";
+        rawBtn.className = "secondary";
+        rawBtn.onclick = () => showLog(p);
+
+        card.appendChild(testBtn);
+        card.appendChild(rawBtn);
+        root.appendChild(card);
+      });
+    }
+
+    async function triggerTest(p) {
+      const log = document.getElementById("log");
+      log.textContent = "// running test for " + p.id + "...";
+
+      let url = null;
+      let method = "POST";
+
+      if (p.testEndpoint) {
+        url = p.testEndpoint;
+      } else if (p.chain === "evm") {
+        url = `/test/evm?productId=${encodeURIComponent(p.id)}`;
+      } else if (p.chain === "solana") {
+        url = `/test/sol?productId=${encodeURIComponent(p.id)}`;
+      }
+
+      if (!url) {
+        log.textContent = "// no test endpoint wired for this product";
+        return;
+      }
+
+      const res = await fetch(url, { method });
+      const text = await res.text();
+      try {
+        const json = JSON.parse(text);
+        log.innerHTML = "<pre>" + JSON.stringify(json, null, 2) + "</pre>";
+      } catch {
+        log.innerHTML = "<pre>" + text + "</pre>";
+      }
+    }
+
+    function showLog(p) {
+      const log = document.getElementById("log");
+      log.innerHTML = "<pre>" + JSON.stringify(p, null, 2) + "</pre>";
+    }
+
+    (async () => {
+      try {
+        const cfg = await loadConfig();
+        renderProducts(cfg);
+      } catch (e) {
+        document.getElementById("products").innerHTML =
+          "<div style='color:#fecaca;'>Failed to load /zynapse/config: " +
+          (e.message || e) +
+          "</div>";
+      }
+    })();
+  </script>
+</body>
+</html>
+ -->
+
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Zynapse Multi-Chain Configurable Widget</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 0;
+      padding: 24px;
+      background: #020817;
+      color: #e5e7eb;
+    }
+    h1 {
+      margin-bottom: 4px;
+      color: #38bdf8;
+    }
+    h2 {
+      margin-top: 24px;
+      margin-bottom: 8px;
+      color: #a5b4fc;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(260px, 1.4fr);
+      gap: 20px;
+      align-items: flex-start;
+    }
+    .card {
+      background: rgba(10,18,32,0.98);
+      border-radius: 16px;
+      padding: 14px;
+      border: 1px solid rgba(148,163,253,0.22);
+      box-shadow: 0 14px 30px rgba(15,23,42,0.7);
+      margin-bottom: 10px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 9px;
+      margin-right: 6px;
+      background: rgba(56,189,248,0.14);
+      color: #38bdf8;
+    }
+    .pill-sub {
+      background: rgba(236,72,153,0.12);
+      color: #f472b6;
+    }
+    .grid-products {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 10px;
+    }
+    button {
+      margin-top: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-size: 11px;
+      background: #38bdf8;
+      color: #020817;
+    }
+    button.secondary {
+      background: transparent;
+      color: #9ca3af;
+      border: 1px solid rgba(148,163,253,0.4);
+      margin-left: 4px;
+    }
+    label {
+      display: block;
+      font-size: 10px;
+      color: #9ca3af;
+      margin-top: 6px;
+    }
+    input, select, textarea {
+      width: 100%;
+      margin-top: 2px;
+      padding: 5px 7px;
+      border-radius: 8px;
+      border: 1px solid rgba(75,85,99,0.9);
+      background: #020817;
+      color: #e5e7eb;
+      font-size: 11px;
+      box-sizing: border-box;
+    }
+    textarea {
+      min-height: 50px;
+      resize: vertical;
+    }
+    pre {
+      background: #020817;
+      padding: 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(75,85,99,0.9);
+      font-size: 10px;
+      max-height: 260px;
+      overflow: auto;
+      margin: 0;
+    }
+    .split-list {
+      font-size: 9px;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Zynapse Multi-Chain Widget</h1>
+  <div style="font-size:11px;color:#9ca3af;">
+    Configurable from the frontend. Add products/routes, test autonomous payments via backend agents.
+  </div>
+
+  <div class="layout">
+    <!-- LEFT: Products -->
+    <div>
+      <h2>Products (from /zynapse/config)</h2>
+      <div id="products" class="grid-products"></div>
+    </div>
+
+    <!-- RIGHT: Builder + Log -->
+    <div>
+      <div class="card">
+        <div style="font-weight:600;font-size:13px;margin-bottom:4px;">
+          Add Product / Route (frontend-driven)
+        </div>
+        <form id="builder-form">
+          <label>
+            ID (unique)
+            <input name="id" placeholder="evm-custom-1" required />
+          </label>
+          <label>
+            Label
+            <input name="label" placeholder="My Paid Endpoint" required />
+          </label>
+          <label>
+            Chain
+            <select name="chain">
+              <option value="evm">EVM (x402)</option>
+              <option value="solana">Solana</option>
+            </select>
+          </label>
+          <label>
+            HTTP Method
+            <select name="method">
+              <option>GET</option>
+              <option>POST</option>
+            </select>
+          </label>
+          <label>
+            Path
+            <input name="path" placeholder="/api/my-paid-route" required />
+          </label>
+          <label>
+            Description
+            <textarea name="description" placeholder="What does this route do?"></textarea>
+          </label>
+          <label>
+            Price:
+            <span style="font-size:9px;color:#6b7280;">
+              For EVM: use $0.01 format. For Solana: numeric SOL (e.g. 0.001).
+            </span>
+            <input name="price" placeholder="$0.01 or 0.001" />
+          </label>
+          <label>
+            Payouts (optional, comma-separated)
+            <span style="font-size:9px;color:#6b7280;">
+              Format: address:percent,address:percent. Example:
+              0xMerchantA:70,0xPartnerB:30 or SolPubKey1:50,SolPubKey2:50
+            </span>
+            <input name="payouts" placeholder="address1:70,address2:30" />
+          </label>
+          <label>
+            Type
+            <select name="type">
+              <option value="">One-off</option>
+              <option value="subscription">Subscription</option>
+            </select>
+          </label>
+          <button type="submit">Add & Wire Paywall</button>
+        </form>
+        <div id="builder-status" style="font-size:10px;color:#9ca3af;margin-top:4px;">
+          This will POST to /zynapse/admin/product and update /zynapse/config live.
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:10px;">
+        <div style="font-weight:600;font-size:13px;margin-bottom:4px;">
+          Live Response
+        </div>
+        <div id="log"><pre>// Select a product and click "Test via backend agent".</pre></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function loadConfig() {
+      const res = await fetch("/zynapse/config");
+      const data = await res.json();
+      return data.config || data;
+    }
+
+    function renderProducts(config) {
+      const root = document.getElementById("products");
+      root.innerHTML = "";
+
+      const products = config.products || [];
+
+      products.forEach((p) => {
+        const card = document.createElement("div");
+        card.className = "card";
+
+        const badges = [];
+        badges.push(`<span class="badge">${p.chain.toUpperCase()}</span>`);
+        if (p.type === "subscription") {
+          badges.push(`<span class="badge pill-sub">SUB</span>`);
+        }
+
+        const priceLabel =
+          p.price ||
+          (p.priceSol
+            ? `${p.priceSol} SOL`
+            : p.priceLamports
+            ? (p.priceLamports / 1_000_000_000).toFixed(4) + " SOL"
+            : "N/A");
+
+        card.innerHTML = `
+          <div>${badges.join(" ")}</div>
+          <div style="font-weight:600;font-size:12px;margin-top:4px;">${p.label}</div>
+          <div style="font-size:10px;color:#9ca3af;margin-top:2px;">${p.description || ""}</div>
+          <div style="font-size:10px;color:#e5e7eb;margin-top:3px;">
+            Route: <code>${(p.method || "GET").toUpperCase()} ${p.path}</code>
+          </div>
+          <div style="font-size:10px;color:#38bdf8;margin-top:2px;">
+            Price: ${priceLabel}
+          </div>
+          ${
+            p.payouts && p.payouts.length
+              ? `<div class="split-list">
+                   Payouts:<br />
+                   ${p.payouts
+                     .map(
+                       (s) =>
+                         `- ${s.address?.slice(0, 10) || "?"}... (${s.percent || "?"}%)`
+                     )
+                     .join("<br/>")}
+                 </div>`
+              : ""
+          }
+        `;
+
+        const testBtn = document.createElement("button");
+        testBtn.textContent = "Test via backend agent";
+        testBtn.onclick = () => triggerTest(p);
+
+        const showBtn = document.createElement("button");
+        showBtn.textContent = "Show JSON";
+        showBtn.className = "secondary";
+        showBtn.onclick = () => showLog(p);
+
+        card.appendChild(testBtn);
+        card.appendChild(showBtn);
+        root.appendChild(card);
+      });
+    }
+
+    async function triggerTest(p) {
+      const log = document.getElementById("log");
+      log.innerHTML = `<pre>// Running test for ${p.id}...</pre>`;
+
+      let url = null;
+      if (p.chain === "evm") {
+        url = `/test/evm?productId=${encodeURIComponent(p.id)}`;
+      } else if (p.chain === "solana") {
+        url = `/test/sol?productId=${encodeURIComponent(p.id)}`;
+      }
+
+      if (!url) {
+        log.innerHTML = `<pre>// No test endpoint wired for chain: ${p.chain}</pre>`;
+        return;
+      }
+
+      try {
+        const res = await fetch(url, { method: "POST" });
+        const text = await res.text();
+        try {
+          const json = JSON.parse(text);
+          log.innerHTML = `<pre>${JSON.stringify(json, null, 2)}</pre>`;
+        } catch {
+          log.innerHTML = `<pre>${text}</pre>`;
+        }
+      } catch (e) {
+        log.innerHTML = `<pre>// Request failed: ${e.message || e}</pre>`;
+      }
+    }
+
+    function showLog(p) {
+      const log = document.getElementById("log");
+      log.innerHTML = `<pre>${JSON.stringify(p, null, 2)}</pre>`;
+    }
+
+    // ---------- Builder form JS ----------
+
+    const form = document.getElementById("builder-form");
+    const statusEl = document.getElementById("builder-status");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      statusEl.textContent = "Sending config to /zynapse/admin/product...";
+
+      const fd = new FormData(form);
+      const chain = fd.get("chain");
+      const rawPrice = fd.get("price")?.trim();
+      const payoutsRaw = fd.get("payouts")?.trim();
+
+      const body = {
+        id: fd.get("id").trim(),
+        label: fd.get("label").trim(),
+        chain,
+        method: fd.get("method").trim(),
+        path: fd.get("path").trim(),
+        description: fd.get("description").trim(),
+        type: fd.get("type") || undefined,
+      };
+
+      if (chain === "evm") {
+        if (!rawPrice || !rawPrice.startsWith("$")) {
+          statusEl.textContent =
+            "For EVM, price must be like $0.01";
+          return;
+        }
+        body.price = rawPrice;
+      } else if (chain === "solana") {
+        const solVal = parseFloat(rawPrice || "0");
+        if (!solVal || solVal <= 0) {
+          statusEl.textContent =
+            "For Solana, price must be a positive number in SOL (e.g. 0.001).";
+          return;
+        }
+        body.priceSol = solVal;
+      }
+
+      if (payoutsRaw) {
+        body.payouts = payoutsRaw.split(",").map((entry) => {
+          const [addr, pct] = entry.split(":").map((s) => s.trim());
+          return {
+            address: addr,
+            percent: pct ? Number(pct) : undefined,
+          };
+        });
+      }
+
+      try {
+        const res = await fetch("/zynapse/admin/product", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+
+        if (!data.ok) {
+          statusEl.textContent =
+            "Error: " + (data.error || "unknown_error");
+          return;
+        }
+
+        statusEl.textContent = "Product added. Reloading config...";
+        form.reset();
+        const cfg = await loadConfig();
+        renderProducts(cfg);
+        statusEl.textContent =
+          "Product wired. Try it via 'Test via backend agent'.";
+      } catch (err) {
+        statusEl.textContent =
+          "Request failed: " + (err.message || err);
+      }
+    });
+
+    // ---------- Initial load ----------
+
+    (async () => {
+      try {
+        const cfg = await loadConfig();
+        renderProducts(cfg);
+      } catch (e) {
+        document.getElementById("products").innerHTML =
+          "<div style='color:#fecaca;font-size:11px;'>Failed to load /zynapse/config: " +
+          (e.message || e) +
+          "</div>";
+      }
+    })();
+  </script>
+</body>
+</html>
+
