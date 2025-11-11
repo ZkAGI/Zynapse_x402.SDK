@@ -1,0 +1,14 @@
+{
+    "name": "express-paid-api",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+      "dev": "node src/server.mjs"
+    },
+    "dependencies": {
+      "express": "^4.19.2",
+      "dotenv": "^16.4.5",
+      "@zynapse/node": "workspace:*"
+    }
+  }
+  

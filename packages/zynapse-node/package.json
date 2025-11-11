@@ -1,15 +1,22 @@
 {
   "name": "@zynapse/node",
   "version": "0.1.0",
+  "type": "module",
   "main": "dist/index.js",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "license": "MIT",
   "scripts": {
     "build": "tsc -p tsconfig.json"
   },
-  "dependencies": {},
+  "dependencies": {
+    "x402-express": "^0.1.0",
+    "x402-fetch": "^0.1.0",
+    "viem": "^2.21.0",
+    "node-fetch": "^3.3.2"
+  },
   "devDependencies": {
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "@types/node": "^22.9.0"
   }
 }
-

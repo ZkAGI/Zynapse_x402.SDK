@@ -1,0 +1,114 @@
+# =========================================================
+# Zynapse SDK Monorepo .gitignore
+# Covers: Node, Python, TypeScript, FastAPI, Docker, envs
+# =========================================================
+
+# --- Node / JS / TS ---
+node_modules/
+dist/
+lib/
+build/
+coverage/
+.nyc_output/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+# --- TypeScript ---
+*.tsbuildinfo
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+.eggs/
+.env/
+.venv/
+venv/
+pip-wheel-metadata/
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+coverage.xml
+htmlcov/
+
+# --- Environment / Secrets ---
+.env
+.env.*
+!.env.example
+.DS_Store
+*.pem
+*.key
+*.crt
+*.secret
+*.keystore
+*.p12
+*.cert
+*.der
+
+# --- IDE / Editor ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*.bak
+*.tmp
+Thumbs.db
+desktop.ini
+
+# --- Docker / Containers ---
+docker-compose.override.yml
+*.pid
+*.pid.lock
+
+# --- Build / Packaging ---
+dist/
+build/
+*.tar.gz
+*.zip
+
+# --- Misc / OS ---
+.DS_Store
+ehthumbs.db
+Icon?
+._*
+
+# --- Logs / Temp files ---
+*.log
+logs/
+tmp/
+temp/
+
+# --- Examples / Local Testing ---
+examples/**/.env
+examples/**/.venv
+examples/**/node_modules
+examples/**/dist
+examples/**/__pycache__
+
+# --- pnpm ---
+.pnpm-debug.log
+.pnpm-store/
+
+# --- Other ---
+*.sqlite
+*.db
+*.lock
+*.tgz
+
+# =========================================================
+# SAFE FILES TO KEEP (Whitelist)
+# =========================================================
+!.env.example
+!README.md
+!LICENSE
+!pnpm-workspace.yaml
+!docker-compose.yml
+!docs/
+!packages/**/src/
+!examples/**/src/
