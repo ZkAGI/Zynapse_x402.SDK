@@ -27,6 +27,19 @@ This SDK enables x402 micropayments for APIs. Protect any endpoint with on-chain
 
 ---
 
+## Architecture
+
+<div align="center">
+  <img width="424" height="424" alt="Endpoints" src="https://github.com/user-attachments/assets/2ff721c7-06c9-4a24-9b3f-ebcc200bed48" />
+  <p><strong>SDK Architecture</strong></p>
+</div>
+
+<div align="center">
+  <img width="424" height="424" alt="402 Payment Flow" src="https://github.com/user-attachments/assets/227d121f-b3db-4d08-acb5-b73319d7a445" />
+  <p><strong>402 Protocol Flow</strong></p>
+</div>
+
+
 ## Quick Start
 
 **Install:**
@@ -217,3 +230,4 @@ See [examples/](./examples/) for complete working code.
 Apache 2.0
 
 ---
+
