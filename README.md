@@ -1,84 +1,47 @@
-# Zynapse SDK
+## Zynapse_x402 SDK
 
-> **Add blockchain micropayments to any API in ~10 lines of code.**
+**Add blockchain micropayments to any API in 10 lines of code.** 
 
-The **Zynapse SDK** makes it quick and easy to add on-chain, per-request payments to any HTTP API.
-It is built around the **x402 pattern** (HTTP 402 Payment Required), supports **Solana** and **EVM (via x402)**, and is designed to be:
+The Zynapse Payment SDK makes it quick and easy to build an excellent payment experience for your API-based and usage-based digital products. We provide powerful integration tools that handle Solana micropayments, with plans for advanced features like multi-party payment splitting, privacy-preserving transactions, and multi-coin acceptance.
 
-* reusable
-* declarative
-* agent-friendly (autonomous payments)
-* ready for multi-party revenue splitting.
+> **Charge per API call on chain of your choice with automatic multi-party revenue splitting.**
 
-This README also documents the **reusable pattern** implemented in the `zynapse-multichain` example so teams can:
+-----
 
-* define paid API products from a UI
-* wire paywalls + handlers automatically
-* plug in custom business logic (Pixtral, your own APIs, etc.)
+## What is Zynapse\_x402.SDK?
 
----
-
-## Reusable Pattern Overview (Core Idea)
-
-The core abstraction is a **Product**:
-
-```ts
-{
-  id: string;                             // unique handle
-  label: string;                          // human-readable name
-  chain: "evm" | "solana";                // which network/paywall engine
-  method: "GET" | "POST";                 // HTTP method
-  path: string;                           // e.g. "/ai/pixtral-sol-1"
-  price?: string;                         // for EVM, like "$0.10"
-  priceSol?: number;                      // for Solana, in SOL
-  payouts?: { address: string; percent: number }[]; // optional multi-recipient split
-  aiBackend?: "pixtral" | "hello" | string; // which backend logic to run
-  model?: string;                         // e.g. "pixtral-12b-2409" (if AI)
-  description?: string;                   // docs for UIs
-}
-```
-
-For each product, the Zynapse server does two things:
-
-1. **Register a paywall** for `(method, path)`
-
-   * EVM: via x402 (e.g. Base Sepolia) using a facilitator.
-   * Solana: via on-chain verification (`initSolanaPaywall`) or split-paywall wrapper.
-2. **Register a handler** behind the paywall
-
-   * For `aiBackend: "pixtral"`: call Pixtral/Mistral-style chat API.
-   * For `aiBackend: "hello"` (or your own): run any custom code you define.
-
-This pattern is implemented in `examples/zynapse-multichain/src/server.mjs` and can be reused as:
-
-> **Product in → Paid endpoint out**, without duplicating paywall code each time.
-
----
-
-## Zynapse_x402.SDK (Concept)
-
-This SDK enables x402 micropayments for APIs. Protect any endpoint with on-chain payments that can split across multiple wallets.
+This SDK enables x402 micropayments for APIs. Protect any endpoint with on-chain payments that automatically split across multiple wallets.
 
 **Use Cases:**
 
-* API monetization (AI, data, compute)
-* Usage-based billing ($0.001 - $10 per call)
-* Autonomous agent payments (bots paying bots)
-* Multi-stakeholder revenue splits (creator/referrer/platform/DAO)
+  * API monetization (AI, data, compute)
+  * Usage-based billing ($0.001 - $10 per call)
+  * Autonomous agent payments (bots paying bots)
+  * Multi-stakeholder revenue splits (creator/referrer/platform/DAO)
 
 **Key Features:**
 
-* ✅ x402 protocol (HTTP 402 Payment Required)
-* ✅ Automatic payment splitting across wallets
-* ✅ TEE-secured payment verification (roadmap / infra dependent)
-* ✅ Autonomous payment agents
-* ✅ Multi-chain (Solana, Base; Ethereum soon)
+  * ✅ x402 protocol (HTTP 402 Payment Required)
+  * ✅ Automatic payment splitting across wallets
+  * ✅ TEE-secured payment verification
+  * ✅ Autonomous payment agents
+  * ✅ Multi-chain (Solana, Base, Ethereum soon)
 
----
+-----
 
-## Quick Start (Direct SDK)
+## Architecture
 
-If you just want to protect a single endpoint (no UI, no products yet):
+<div align="center">
+  <img width="424" height="424" alt="Endpoints" src="https://github.com/user-attachments/assets/2ff721c7-06c9-4a24-9b3f-ebcc200bed48" />
+  <p><strong>SDK Architecture</strong></p>
+</div>
+
+<div align="center">
+  <img width="424" height="424" alt="402 Payment Flow" src="https://github.com/user-attachments/assets/227d121f-b3db-4d08-acb5-b73319d7a445" />
+  <p><strong>402 Protocol Flow</strong></p>
+</div>
+
+## Quick Start
 
 **Install:**
 
@@ -86,16 +49,17 @@ If you just want to protect a single endpoint (no UI, no products yet):
 npm install @zynapse/node @solana/web3.js dotenv
 ```
 
-**.env:**
+**Setup (5 minutes):**
+Create **.env**:
 
 ```env
 MERCHANT_SOL_ADDRESS=your_solana_pubkey
 SOLANA_RPC_URL=https://api.devnet.solana.com
 ```
 
-**server.js:**
+Create **server.js**:
 
-```js
+```javascript
 import express from 'express';
 import { initSolanaPaywall } from '@zynapse/node';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
@@ -103,6 +67,7 @@ import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 const app = express();
 app.use(express.json());
 
+// Protect your endpoint
 initSolanaPaywall({
   app,
   path: '/api/inference',
@@ -111,6 +76,7 @@ initSolanaPaywall({
   rpcUrl: process.env.SOLANA_RPC_URL,
 });
 
+// Your API logic (runs after payment verified)
 app.post('/api/inference', async (req, res) => {
   const result = await yourLogic(req.body);
   res.json({ ok: true, result });
@@ -119,324 +85,157 @@ app.post('/api/inference', async (req, res) => {
 app.listen(4060, () => console.log('✅ Paid API running'));
 ```
 
-Run:
+**Run:**
 
 ```bash
 node server.js
 ```
 
-First call (without payment) returns `402 Payment Required`. Clients/agents then pay and retry.
-
----
-
-## Zynapse Multichain Example (Recommended Pattern)
-
-Directory:
-
-```text
-examples/zynapse-multichain/
-  src/server.mjs         # reusable backend
-  public/admin.html      # admin widget (define products)
-  public/solana-pixtral-chat.html  # client widget (chat-style consumer)
-```
-
-### 1. Setup
+**Test:**
 
 ```bash
-pnpm install
-pnpm --filter @zynapse/node build
-pnpm --filter zynapse-multichain dev
+curl -X POST http://localhost:4060/api/inference \
+  -d '{"input": "test"}' \
+  -H "Content-Type: application/json"
 ```
 
-In `examples/zynapse-multichain/.env`:
+**Response: 402 Payment Required**
+🎉 **Done\!** Your API now requires payment.
 
-```env
-# EVM / x402
-EVM_NETWORK=base-sepolia
-EVM_FACILITATOR_URL=https://x402.org/facilitator
-EVM_MERCHANT_ADDRESS=0xYourEvmMerchantOnBaseSepolia
-EVM_PAYER_PRIVATE_KEY=0xYourEvmPayerPrivateKeyWithFunds
+-----
 
-# Solana\ nSOLANA_RPC_URL=https://api.devnet.solana.com
-SOL_MERCHANT_MAIN=YourSolMerchantDevnetPubkey
+## Payment Splitting
 
-# Pixtral / Mistral
-PIXTRAL_API_KEY=your_mistral_or_pixtral_api_key_here
-PIXTRAL_MODEL=pixtral-12b-2409
+Automatically split revenue across multiple wallets:
 
-# Defaults
-DEFAULT_PIXTRAL_PRICE_USD=0.10
-DEFAULT_PIXTRAL_PRICE_SOL=0.1
-```
-
-Then open:
-
-* Admin: `http://localhost:4040/admin`
-* Solana Pixtral chat: `http://localhost:4040/chat/solana-pixtral`
-* Config JSON: `http://localhost:4040/zynapse/config`
-
-### 2. Flow
-
-1. **Define products** in `/admin` (no code changes):
-
-   * Choose chain, path, price, payouts, backend (`aiBackend`), model.
-2. **server.mjs** wires:
-
-   * appropriate paywall (`initPaidRoutes` for EVM / `initSolanaPaywall` or split-paywall for Solana), and
-   * the corresponding handler (Pixtral or custom).
-3. **Clients** (widgets, agents, or your apps) discover products via `/zynapse/config` and call:
-
-   * `POST /test/evm?productId=...` or
-   * `POST /test/sol?productId=...`
-     which use autonomous wallets to pay + call your paid endpoints.
-
-This pattern keeps your paywall logic centralized and your product logic declarative.
-
----
-
-## Example: Creating a Pixtral Product (UI)
-
-In **Admin UI** (`/admin`), create a Solana Pixtral product:
-
-* ID: `pixtral-sol-1`
-* Label: `Pixtral Solana Paid AI`
-* Chain: `Solana`
-* Method: `POST`
-* Path: `/ai/pixtral-sol-1`
-* Price: `0.1` (SOL)
-* Payouts: `YourSolMerchantDevnetPubkey:100`
-* Pixtral Model: `pixtral-12b-2409`
-
-Click **Create & Wire**.
-
-The backend now:
-
-* protects `POST /ai/pixtral-sol-1` with a Solana paywall,
-* runs a Pixtral completion handler after payment,
-* exposes this product via `/zynapse/config`,
-* allows `POST /test/sol?productId=pixtral-sol-1` to:
-
-  * use an autonomous Solana wallet,
-  * pay the fee,
-  * execute the Pixtral call.
-
-On `http://localhost:4040/chat/solana-pixtral`, the widget automatically:
-
-* loads `/zynapse/config`,
-* finds the Solana+Pixtral product,
-* lets you **Create Agent Wallet** (`/wallet/create`),
-* sends prompts via `/test/sol?productId=...` as a paid chat.
-
----
-
-## Example: Make Your Own Paid API ("/hello")
-
-You want:
-
-> `GET /hello` → returns `"Learn how to use x402"` **only after payment**.
-
-### Step 1: Create product via Admin API
-
-```bash
-curl -X POST http://localhost:4040/zynapse/admin/product \
-  -H "Content-Type: application/json" \
-  -d '{
-    "id": "hello-x402-evm",
-    "label": "Hello x402 Paid Guide",
-    "chain": "evm",
-    "method": "GET",
-    "path": "/hello",
-    "price": "$0.05",
-    "payouts": [
-      { "address": "0xYourEvmMerchantOnBaseSepolia", "percent": 100 }
-    ],
-    "aiBackend": "hello"
-  }'
-```
-
-This tells Zynapse:
-
-* protect `GET /hello` on EVM with `$0.05` x402 paywall,
-* when paid, run the `hello` backend.
-
-### Step 2: Implement reusable handler routing
-
-In `server.mjs`, instead of only `registerPixtralHandler`, use a generic router, e.g.:
-
-```js
-function registerHandlerForProduct(product) {
-  const method = (product.method || 'POST').toLowerCase();
-  const routePath = product.path;
-  if (!routePath) return;
-
-  // Avoid duplicate binding
-  if (app._router?.stack?.some(
-    (l) => l.route && l.route.path === routePath && l.route.methods[method]
-  )) return;
-
-  if (product.aiBackend === 'hello') {
-    app[method](routePath, (req, res) => {
-      res.json({
-        ok: true,
-        paid: true,
-        message: 'Learn how to use x402',
-      });
-    });
-    return;
-  }
-
-  if (product.aiBackend === 'pixtral') {
-    // existing Pixtral handler here (call Pixtral and return)
-  }
-
-  // Fallback: simple stub
-  app[method](routePath, (req, res) => {
-    res.json({ ok: true, paid: true, message: `Paid endpoint for ${product.id}` });
-  });
-}
-```
-
-And when creating products in `/zynapse/admin/product`, call:
-
-```js
-registerPaywallForProduct(product);
-registerHandlerForProduct(product);
-products.push(product);
-```
-
-You now have a **reusable format**:
-
-* Any new paid endpoint = one JSON product + one `aiBackend` case.
-* No need to touch paywall wiring each time.
-
-### Step 3: Test with curl
-
-Using the built-in autonomous test route (no manual signing):
-
-```bash
-curl -X POST "http://localhost:4040/test/evm?productId=hello-x402-evm"
-```
-
-This uses `EVM_PAYER_PRIVATE_KEY` to:
-
-* pay the x402 challenge,
-* call `/hello`,
-* return the paid response.
-
-In a real client, you would:
-
-1. Call `/hello` → receive 402 + payment instructions.
-2. Pay on-chain.
-3. Retry `/hello` with `X-PAYMENT` header.
-4. Or use `createAutonomousFetch` from `@zynapse/node` to automate 2–3.
-
----
-
-## Payment Splitting (Pattern)
-
-The SDK and examples support multi-recipient logic.
-A typical Solana pattern:
-
-```js
+```javascript
 initSolanaPaywall({
   app,
   path: '/api/inference',
   payTo: ESCROW_ADDRESS,
   priceLamports: Math.floor(0.01 * LAMPORTS_PER_SOL),
   rpcUrl: SOLANA_RPC_URL,
-  // your splitter (on-chain program or TEE-based)
+  splits: [
+    { address: CREATOR_WALLET, percent: 60 },   // Creator
+    { address: REFERRER_WALLET, percent: 20 },  // Affiliate
+    { address: PLATFORM_WALLET, percent: 10 },  // Platform fee
+    { address: LIQUIDITY_POOL, percent: 10 }    // Token buyback
+  ]
 });
 ```
 
-The `zynapse-multichain` example also includes a demo `initSolanaSplitPaywall` to show how you could:
+**Use Cases:**
 
-* accept one payment,
-* verify it covers all recipients,
-* enforce per-recipient minimums.
+  * Affiliate commissions
+  * Platform fees
+  * DAO funding
+  * Token buyback mechanisms
 
-Use cases:
+-----
 
-* Affiliate / referrer cuts
-* Platform fees
-* DAO / community treasury
-* Token buyback / liquidity sinks
+## Documentation
 
----
+📚 **[Integration Guide](https://www.google.com/search?q=./INTEGRATION_GUIDE.md)**
 
-## How It Works (x402 Flow)
+  * Complete setup with agent wallets, testing, deployment
+    🎯 **[Examples](https://www.google.com/search?q=./examples/)**
+  * Working code samples
 
-```text
-1. Client → request /api/endpoint
-2. Server → 402 Payment Required (with how-to-pay details)
-3. Client / agent → pays on Solana/Base/etc.
-4. Client / agent → retries with X-PAYMENT (proof / tx)
-5. Server → verifies on-chain + executes
-6. (Optional) Split / route funds to multiple wallets
-```
+-----
 
-The Zynapse SDK + helpers (`createAutonomousFetch`, `createSolanaAutonomousFetch`) handle steps 2–5 for autonomous flows.
+## How It Works
 
----
+1.  Client → POST /api/endpoint
+2.  Server → 402 Payment Required (if no payment)
+3.  Client → Pay on Solana/Base blockchain
+4.  Client → Retry with payment proof header
+5.  Server → Verify on-chain & execute
+6.  (Optional) Split payment across wallets
+
+-----
 
 ## Supported Networks
 
-| Network        | Status     | Use Case   |
-| -------------- | ---------- | ---------- |
-| Solana Devnet  | ✅ Live     | Testing    |
+| Network | Status | Use Case |
+|---------|--------|----------|
+| Solana Devnet | ✅ Live | Testing |
 | Solana Mainnet | 🚧 Q4 2025 | Production |
-| Base Sepolia   | ✅ Live     | Testing    |
-| Base Mainnet   | 🚧 Q4 2025 | Production |
-| Ethereum       | 🚧 Q1 2026 | Production |
+| Base Sepolia | ✅ Live | Testing |
+| Base Mainnet | 🚧 Q4 2025 | Production |
+| Ethereum | 🚧 Q1 2026 | Production |
 
-*(Timeline indicative; adapt to your actual roadmap.)*
+-----
 
----
+## Examples
 
-## Autonomous Agents
+**AI Inference:**
 
-Examples (see `zynapse-multichain`):
+```javascript
+initSolanaPaywall({
+  app,
+  path: '/api/inference',
+  payTo: MERCHANT_WALLET,
+  priceLamports: Math.floor(0.01 * LAMPORTS_PER_SOL),
+  rpcUrl: SOLANA_RPC_URL,
+});
 
-```js
+app.post('/api/inference', async (req, res) => {
+  const result = await callAIModel(req.body.prompt);
+  res.json({ ok: true, result });
+});
+```
+
+**Autonomous Agent:**
+
+```javascript
 import { createSolanaAutonomousFetch } from '@zynapse/node';
 
 const { fetchWithPayment } = createSolanaAutonomousFetch({
-  secretKey: process.env.AGENT_WALLET_SECRET_JSON,
-  rpcUrl: process.env.SOLANA_RPC_URL,
+  secretKey: process.env.AGENT_WALLET_SECRET,
+  rpcUrl: SOLANA_RPC_URL
 });
 
-// Agent auto-pays and retries according to x402 responses
-const res = await fetchWithPayment('https://your.api/paid');
+// Agent automatically handles payment
+const response = await fetchWithPayment('https://api.example.com/paid');
 ```
 
-Same pattern exists for x402/EVM via `createAutonomousFetch`.
+See **[examples/](https://www.google.com/search?q=./examples/)** for complete working code.
 
----
+-----
+
+## Roadmap
+
+**Current**
+
+  * ✅ TEE‑first key lifecycle (generate, seal, sign in‑enclave)
+  * ✅ Paywalls (402/x402) for API endpoints
+  * ✅ Single‑destination settlement → one primary vault/wallet
+  * ✅ Any‑asset → preferred asset (limited) via facilitator; settle SOL/USDC
+  * ✅ Examples: Solana devnet paywall; Base‑Sepolia x402 + Pixtral demo
+  * ✅ Splits + Scheduler: Multi-recipient revenue splits with hourly/daily/threshold payouts, all enforced inside the TEE.
+
+**Future Scope**
+
+  * Develop client side widgit and dashboard to make it easier for users to integrate and maange
+  * Adding template and examples to make onboarding easier for enterprises
+
+-----
 
 ## Requirements
 
-* Node.js 16+
-* Express.js 4+
-* Solana / EVM wallets with testnet funds (for relevant networks)
+  * Node.js 16+
+  * Express.js 4.x+
+  * Solana wallet for receiving payments
 
----
-
-## Docs & Examples
-
-* `examples/zynapse-multichain/` – full reusable backend + widgets.
-* (Extend with more examples as SDK evolves.)
-
-For deeper integration details, deployment patterns, and TEE-backed verification, refer to your internal or public docs.
-
----
+-----
 
 ## Support
 
-* Email: [support@zkagi.ai](mailto:support@zkagi.ai)
-* Docs: [https://docs.zkagi.ai](https://docs.zkagi.ai) (or your canonical docs URL)
+  * **Email:** support@zkagi.ai
+  * **Docs:** [https://docs.zkagi.ai](https://docs.zkagi.ai)
 
----
+-----
 
 ## License
 
 Apache 2.0
-
