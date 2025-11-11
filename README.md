@@ -201,6 +201,22 @@ See **[examples/](https://www.google.com/search?q=./examples/)** for complete wo
 
 -----
 
+## 7. Summary
+
+* *Zynapse Multichain* (this example) is your canonical template.
+* All logic routes through a single, reusable server.mjs:
+
+  * Products in, paid endpoints out.
+* The *Admin widget* is your no-code/low-code layer to define products.
+* The *Solana Pixtral widget* is a concrete consumer showing autonomous wallet-powered access.
+* To support any new API:
+
+  1. Define a product.
+  2. Add a backend implementation branch in registerHandlerForProduct.
+  3. Reuse the same paywall + config pattern.
+
+This structure is intentionally small and hackathon-friendly, while mapping cleanly to how you’d build a reusable paid-API platform in production.
+
 ## Roadmap
 
 **Current**
@@ -237,4 +253,5 @@ See **[examples/](https://www.google.com/search?q=./examples/)** for complete wo
 ## License
 
 Apache 2.0
+
 
