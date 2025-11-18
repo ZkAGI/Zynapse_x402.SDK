@@ -135,9 +135,7 @@ initSolanaPaywall({
 
 ## Documentation
 
-📚 **[Integration Guide](https://www.google.com/search?q=./INTEGRATION_GUIDE.md)** 
-
-🎯 **[Examples](https://www.google.com/search?q=./examples/)**
+🎯 **[Examples](https://github.com/ZkAGI/Zynapse_x402.SDK/tree/main/examples/zynapse-multichain)**
 
 -----
 
@@ -253,5 +251,6 @@ This structure is intentionally small and hackathon-friendly, while mapping clea
 ## License
 
 Apache 2.0
+
 
 
